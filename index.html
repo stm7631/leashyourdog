@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Leash Your Dog</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;600;700;800&family=DM+Serif+Display&family=Inter:wght@400;500;600;700&family=Bebas+Neue&family=JetBrains+Mono:wght@400;500;700&family=Fredoka:wght@500;600;700&family=Nunito:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #FFF4E6; }
+  body {
+    font-family: var(--lyd-body, 'Archivo', sans-serif);
+    color: #1A1A1A;
+  }
+  button { font-family: inherit; }
+  body.leash-cursor,
+  body.leash-cursor * { cursor: none !important; }
+
+  @keyframes lyd-marquee    { from { transform: translateX(0) } to { transform: translateX(-50%) } }
+  @keyframes lyd-blink      { 0%,100% { opacity: 0.3 } 50% { opacity: 1 } }
+  @keyframes lyd-spin       { to { transform: rotate(360deg) } }
+  @keyframes lyd-pulse      { 0%,100% { transform: scale(1); opacity: 0.6 } 50% { transform: scale(1.6); opacity: 1 } }
+  @keyframes lyd-pop        { 0% { transform: scale(0.3) rotate(-10deg); opacity: 0 } 30% { transform: scale(1.3) rotate(-4deg); opacity: 1 } 100% { transform: scale(1) rotate(0); opacity: 0 } }
+  @keyframes lyd-ping       { 0% { transform: translateX(-50%) scale(0.6); opacity: 0 } 100% { transform: translateX(-50%) scale(1); opacity: 1 } }
+  @keyframes lyd-backdrop-in { from { opacity: 0 } to { opacity: 1 } }
+  @keyframes lyd-modal-in   { from { opacity: 0; transform: translateY(24px) scale(0.94) } to { opacity: 1; transform: translateY(0) scale(1) } }
+  @keyframes lyd-censor-wobble { 0%,100% { transform: rotate(-1.5deg) } 50% { transform: rotate(1.5deg) } }
+  @keyframes dog-tail        { from { transform: rotate(-10deg) } to { transform: rotate(20deg) } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="tokens.js"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+
+<script type="text/babel">
+// ─── Apply active font to CSS vars ──────────────────────────────────────────
+(function () {
+  const f = FONT_STACKS[ACTIVE_FONT] || FONT_STACKS.grotesque;
+  const b = document.body;
+  b.style.setProperty('--lyd-display', f.display);
+  b.style.setProperty('--lyd-body', f.body);
+  b.style.setProperty('--lyd-display-transform', f.displayTransform);
+  b.style.setProperty('--lyd-display-tracking', f.displayTracking);
+  b.style.fontFamily = f.body;
+})();
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+function colorName(hex) {
+  return ({ '#FF5B1F': 'SF Orange', '#1A1A1A': 'Ink Black', '#FFF4E6': 'Bone Cream', '#2E6BE6': 'Signal Blue' })[hex] || hex;
+}
+
+// ─── Striped placeholder ─────────────────────────────────────────────────────
+function StripedPlaceholder({ label, bg = LYD.cream, stripe = LYD.orange, style = {} }) {
+  return (
+    <div style={{
+      position: 'relative', width: '100%', height: '100%',
+      backgroundImage: `repeating-linear-gradient(135deg, ${stripe} 0 14px, ${bg} 14px 32px)`,
+      ...style,
+    }}>
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{
+          fontFamily: '"JetBrains Mono", monospace', fontSize: 11, letterSpacing: '0.1em',
+          background: LYD.ink, color: LYD.cream, padding: '6px 12px', whiteSpace: 'nowrap',
+        }}>{label}</div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Pill button ─────────────────────────────────────────────────────────────
+function PillButton({ children, onClick, variant = 'primary', size = 'md', style = {} }) {
+  const [pressed, setPressed] = React.useState(false);
+  const [hover, setHover]     = React.useState(false);
+  const palette = { primary: { bg: LYD.orange, fg: LYD.cream, border: LYD.ink }, dark: { bg: LYD.ink, fg: LYD.cream, border: LYD.ink }, ghost: { bg: LYD.cream, fg: LYD.ink, border: LYD.ink }, blue: { bg: LYD.blue, fg: LYD.cream, border: LYD.ink } }[variant];
+  const sz      = { sm: { px:16, py:8, fs:13 }, md: { px:22, py:12, fs:15 }, lg: { px:30, py:18, fs:18 } }[size];
+  return (
+    <button
+      onMouseDown={() => setPressed(true)} onMouseUp={() => setPressed(false)}
+      onMouseLeave={() => { setPressed(false); setHover(false); }} onMouseEnter={() => setHover(true)}
+      onClick={onClick}
+      style={{
+        border: `2px solid ${palette.border}`, background: palette.bg, color: palette.fg,
+        padding: `${sz.py}px ${sz.px}px`, fontSize: sz.fs, fontWeight: 700, letterSpacing: '0.02em',
+        borderRadius: pressed ? 16 : 999,
+        boxShadow: pressed ? LYD.chunk(palette.border,1,1) : hover ? LYD.chunk(palette.border,6,6) : LYD.chunk(palette.border,4,4),
+        transform: pressed ? 'translate(2px,2px)' : hover ? 'translate(-1px,-1px)' : 'translate(0,0)',
+        transition: `border-radius 220ms ${LYD.spring}, box-shadow 160ms ${LYD.ease}, transform 140ms ${LYD.ease}`,
+        cursor: 'pointer', ...style,
+      }}
+    >{children}</button>
+  );
+}
+
+// ─── Censored word ────────────────────────────────────────────────────────────
+function CensoredWord() {
+  return (
+    <span style={{ position: 'relative', display: 'inline-block', padding: '0 4px' }}>
+      <span style={{ visibility: 'hidden' }}>FUCKING</span>
+      <span style={{
+        position: 'absolute', inset: '-4px -8px',
+        background: LYD.ink, border: `3px solid ${LYD.cream}`, outline: `3px solid ${LYD.ink}`,
+        borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: LYD.cream, fontSize: '0.65em', fontFamily: '"JetBrains Mono", monospace',
+        fontWeight: 700, letterSpacing: '0.08em',
+        animation: 'lyd-censor-wobble 2.4s ease-in-out infinite',
+      }}>F✶✶✶ING</span>
+    </span>
+  );
+}
+
+// ─── Small tilted banner ──────────────────────────────────────────────────────
+function SmallBanner() {
+  const phrase = (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 14 }}>
+      <span>LEASH YOUR</span><CensoredWord /><span>DOG</span>
+      <span style={{ fontSize: '0.7em', padding: '0 10px' }}>✦</span>
+    </span>
+  );
+  return (
+    <div style={{
+      background: LYD.orange, borderTop: `2.5px solid ${LYD.ink}`, borderBottom: `2.5px solid ${LYD.ink}`,
+      transform: 'rotate(-2deg)', margin: '0 -30px', overflow: 'hidden', whiteSpace: 'nowrap', zIndex: 30,
+    }}>
+      <div style={{
+        display: 'inline-block', padding: '8px 0',
+        animation: 'lyd-marquee 36s linear infinite',
+        fontFamily: 'var(--lyd-display)', fontSize: 28, fontWeight: 900, color: LYD.ink,
+        letterSpacing: 'var(--lyd-display-tracking)', textTransform: 'var(--lyd-display-transform)', lineHeight: 1,
+      }}>
+        {Array.from({length:10}).map((_,i) => <span key={i}>{phrase}</span>)}
+      </div>
+    </div>
+  );
+}
+
+// ─── Dog SVG illustration ─────────────────────────────────────────────────────
+function DogIllustration({ size = 150 }) {
+  return (
+    <svg viewBox="0 0 200 200" width={size} height={size} style={{ display: 'block' }}>
+      <defs>
+        <pattern id="dogShade" patternUnits="userSpaceOnUse" width="3" height="3" patternTransform="rotate(45)">
+          <line x1="0" y1="0" x2="0" y2="3" stroke={LYD.ink} strokeWidth="0.6" opacity="0.2"/>
+        </pattern>
+      </defs>
+      <g style={{ transformOrigin:'150px 120px', animation:'dog-tail 0.6s ease-in-out infinite alternate' }}>
+        <path d="M 150 120 Q 175 100 180 75" fill="none" stroke={LYD.ink} strokeWidth="7" strokeLinecap="round"/>
+        <path d="M 150 120 Q 175 100 180 75" fill="none" stroke={LYD.orange} strokeWidth="3" strokeLinecap="round"/>
+      </g>
+      <ellipse cx="110" cy="130" rx="55" ry="42" fill={LYD.cream} stroke={LYD.ink} strokeWidth="5"/>
+      <path d="M 90 160 L 88 180 L 78 180 L 80 160 Z" fill={LYD.cream} stroke={LYD.ink} strokeWidth="5" strokeLinejoin="round"/>
+      <path d="M 130 160 L 128 180 L 118 180 L 120 160 Z" fill={LYD.cream} stroke={LYD.ink} strokeWidth="5" strokeLinejoin="round"/>
+      <path d="M 68 140 L 62 185 L 50 185 L 54 135 Z" fill={LYD.cream} stroke={LYD.ink} strokeWidth="5" strokeLinejoin="round"/>
+      <ellipse cx="72" cy="135" rx="18" ry="14" fill={LYD.orange} stroke={LYD.ink} strokeWidth="3"/>
+      <circle cx="62" cy="95" r="32" fill={LYD.cream} stroke={LYD.ink} strokeWidth="5"/>
+      <path d="M 45 72 Q 30 85 38 110 Q 48 100 52 88 Z" fill={LYD.orange} stroke={LYD.ink} strokeWidth="4" strokeLinejoin="round"/>
+      <ellipse cx="40" cy="104" rx="16" ry="11" fill={LYD.cream} stroke={LYD.ink} strokeWidth="4"/>
+      <ellipse cx="28" cy="100" rx="6" ry="5" fill={LYD.ink}/>
+      <ellipse cx="26" cy="98" rx="1.5" ry="1" fill={LYD.cream}/>
+      <path d="M 32 108 Q 38 114 46 110" fill="none" stroke={LYD.ink} strokeWidth="3" strokeLinecap="round"/>
+      <path d="M 46 110 Q 50 114 54 110" fill="none" stroke={LYD.ink} strokeWidth="3" strokeLinecap="round"/>
+      <ellipse cx="42" cy="113" rx="4" ry="3" fill="#E23A7A" stroke={LYD.ink} strokeWidth="1.5"/>
+      <circle cx="58" cy="88" r="5" fill={LYD.ink}/>
+      <circle cx="60" cy="86" r="1.5" fill={LYD.cream}/>
+      <path d="M 52 78 Q 58 75 64 78" fill="none" stroke={LYD.ink} strokeWidth="3" strokeLinecap="round"/>
+      {/* collar ring — leash target */}
+      <circle cx="62" cy="122" r="6" fill={LYD.blue} stroke={LYD.ink} strokeWidth="3"/>
+      <circle cx="62" cy="122" r="2" fill={LYD.cream}/>
+    </svg>
+  );
+}
+
+// ─── Heart banner ornament ────────────────────────────────────────────────────
+function HeartBanner({ width = 110, label = 'SF ♥' }) {
+  return (
+    <svg viewBox="0 0 120 100" width={width} height={width * 0.83}>
+      <path d="M 60 85 C 30 65, 15 45, 25 30 C 35 18, 55 22, 60 38 C 65 22, 85 18, 95 30 C 105 45, 90 65, 60 85 Z"
+        fill={LYD.orange} stroke={LYD.ink} strokeWidth="4" strokeLinejoin="round"/>
+      <path d="M 10 55 L 110 55 L 100 65 L 110 75 L 10 75 L 20 65 Z"
+        fill={LYD.cream} stroke={LYD.ink} strokeWidth="3" strokeLinejoin="round"/>
+      <text x="60" y="70" textAnchor="middle" fontFamily="Archivo Black, sans-serif"
+        fontSize="14" fontWeight="900" fill={LYD.ink}>{label}</text>
+    </svg>
+  );
+}
+
+// ─── Running dog (global, avoids cursor, click to clip) ───────────────────────
+function RunningDog({ onClip, clipped, size = 150 }) {
+  const [pos, setPos]       = React.useState({ x: 300, y: 300 });
+  const posRef              = React.useRef({ x: 300, y: 300 });
+  const velRef              = React.useRef({ vx: 3, vy: 1.2 });
+  const [facing, setFacing] = React.useState(1);
+  const cursorRef           = React.useRef({ x: -500, y: -500 });
+  const [hover, setHover]   = React.useState(false);
+
+  React.useEffect(() => {
+    const onMove = (e) => { cursorRef.current = { x: e.clientX, y: e.clientY }; };
+    window.addEventListener('pointermove', onMove);
+    return () => window.removeEventListener('pointermove', onMove);
+  }, []);
+
+  React.useEffect(() => {
+    let raf;
+    const tick = () => {
+      const w = window.innerWidth, h = window.innerHeight;
+      const p = posRef.current, v = velRef.current;
+      if (!clipped) {
+        if (Math.random() < 0.015) { v.vx += (Math.random()-0.5)*1.2; v.vy += (Math.random()-0.5)*1.2; }
+        const c = cursorRef.current;
+        const dx = p.x-c.x, dy = p.y-c.y, dist = Math.hypot(dx,dy);
+        if (dist < 220 && dist > 0.1) {
+          const s = (220-dist)/220;
+          v.vx += (dx/dist)*s*0.8; v.vy += (dy/dist)*s*0.8;
+        } else {
+          if (Math.hypot(v.vx,v.vy) < 2) { v.vx += (Math.random()-0.5)*0.4; v.vy += (Math.random()-0.5)*0.4; }
+        }
+        const sp = Math.hypot(v.vx,v.vy);
+        if (sp > 6) { v.vx = v.vx/sp*6; v.vy = v.vy/sp*6; }
+        v.vx *= 0.985; v.vy *= 0.985;
+        let nx = p.x+v.vx, ny = p.y+v.vy;
+        const m = 90;
+        if (nx < m) { nx=m; v.vx=Math.abs(v.vx); }
+        if (nx > w-m) { nx=w-m; v.vx=-Math.abs(v.vx); }
+        if (ny < m+40) { ny=m+40; v.vy=Math.abs(v.vy); }
+        if (ny > h-m) { ny=h-m; v.vy=-Math.abs(v.vy); }
+        posRef.current = { x:nx, y:ny };
+        setPos({ x:nx, y:ny });
+        setFacing(v.vx>=0 ? 1 : -1);
+      } else {
+        const c = cursorRef.current;
+        const dx = c.x-p.x, dy = c.y-p.y, dist = Math.hypot(dx,dy);
+        if (dist > 140) {
+          const pull = (dist-140)/dist*0.18;
+          const nx = p.x+dx*pull, ny = p.y+dy*pull;
+          posRef.current = { x:nx, y:ny };
+          setPos({ x:nx, y:ny });
+          setFacing(dx>=0 ? 1 : -1);
+        }
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [clipped]);
+
+  return (
+    <div
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+      onClick={(e) => { e.stopPropagation(); if (!clipped) onClip(); }}
+      style={{
+        position: 'fixed', left: pos.x-size/2, top: pos.y-size/2,
+        width: size, height: size,
+        transform: `scaleX(${facing})`, transition: 'transform 120ms linear',
+        cursor: clipped ? 'default' : 'pointer', zIndex: 60,
+        pointerEvents: clipped ? 'none' : 'auto',
+      }}
+    >
+      <DogIllustration size={size} />
+      {!clipped && hover && (
+        <div style={{
+          position: 'absolute', left: '32%', top: '58%', width: 18, height: 18,
+          borderRadius: 999, border: `3px solid ${LYD.orange}`,
+          animation: 'lyd-pulse 0.8s ease-in-out infinite', pointerEvents: 'none',
+        }} />
+      )}
+    </div>
+  );
+}
+
+// ─── Cursor leash (before clip) ───────────────────────────────────────────────
+function CursorLeash({ enabled }) {
+  const [cur, setCur] = React.useState({ x:-500, y:-500 });
+  React.useEffect(() => {
+    if (!enabled) return;
+    const fn = (e) => setCur({ x:e.clientX, y:e.clientY });
+    window.addEventListener('pointermove', fn);
+    return () => window.removeEventListener('pointermove', fn);
+  }, [enabled]);
+  if (!enabled) return null;
+  return (
+    <svg style={{ position:'fixed', inset:0, width:'100vw', height:'100vh', pointerEvents:'none', zIndex:55 }}>
+      <circle cx={cur.x} cy={cur.y} r="14" fill="none" stroke={LYD.ink} strokeWidth="4"/>
+      <circle cx={cur.x} cy={cur.y} r="3" fill={LYD.orange}/>
+      <path d={`M ${cur.x} ${cur.y+14} Q ${cur.x+30} ${cur.y+60} ${cur.x+20} ${cur.y+120}`}
+        fill="none" stroke={LYD.ink} strokeWidth="5" strokeLinecap="round"/>
+      <circle cx={cur.x+20} cy={cur.y+120} r="7" fill={LYD.orange} stroke={LYD.ink} strokeWidth="2.5"/>
+    </svg>
+  );
+}
+
+// ─── Leash from cursor to dog (after clip) ────────────────────────────────────
+function LeashToDog({ enabled, dogPos }) {
+  const [cur, setCur] = React.useState({ x:-500, y:-500 });
+  React.useEffect(() => {
+    if (!enabled) return;
+    const fn = (e) => setCur({ x:e.clientX, y:e.clientY });
+    window.addEventListener('pointermove', fn);
+    return () => window.removeEventListener('pointermove', fn);
+  }, [enabled]);
+  if (!enabled || !dogPos) return null;
+  const to = { x:dogPos.x-25, y:dogPos.y };
+  const midX = (cur.x+to.x)/2, midY = (cur.y+to.y)/2+30;
+  return (
+    <svg style={{ position:'fixed', inset:0, width:'100vw', height:'100vh', pointerEvents:'none', zIndex:55 }}>
+      <path d={`M ${cur.x} ${cur.y} Q ${midX} ${midY} ${to.x} ${to.y}`}
+        fill="none" stroke={LYD.ink} strokeWidth="5" strokeLinecap="round"/>
+      <circle cx={cur.x} cy={cur.y} r="10" fill="none" stroke={LYD.ink} strokeWidth="3"/>
+      <circle cx={to.x} cy={to.y} r="7" fill={LYD.orange} stroke={LYD.ink} strokeWidth="2.5"/>
+    </svg>
+  );
+}
+
+// ─── Product popover ──────────────────────────────────────────────────────────
+function ProductPopover({ product, onClose }) {
+  const [size, setSize]   = React.useState(product.sizes[0]);
+  const [color, setColor] = React.useState(product.colors[0]);
+  const [qty, setQty]     = React.useState(1);
+  const [added, setAdded] = React.useState(false);
+
+  React.useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = ''; };
+  }, [onClose]);
+
+  const checkout = () => { setAdded(true); setTimeout(() => setAdded(false), 1800); };
+  const lbl = { fontFamily:'var(--lyd-body)', fontSize:11, letterSpacing:'0.18em', fontWeight:700, color:LYD.ink, opacity:0.6 };
+
+  return (
+    <div onClick={onClose} style={{
+      position:'fixed', inset:0, zIndex:200,
+      background:'rgba(26,26,26,0.55)', backdropFilter:'blur(4px)', WebkitBackdropFilter:'blur(4px)',
+      display:'flex', alignItems:'center', justifyContent:'center', padding:24,
+      animation:'lyd-backdrop-in 220ms ease both',
+    }}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        width:'min(1100px, 100%)', maxHeight:'92vh',
+        background:LYD.cream, border:`3px solid ${LYD.ink}`, borderRadius:24,
+        boxShadow:LYD.chunk(LYD.ink,8,8),
+        display:'grid', gridTemplateColumns:'1.1fr 1fr',
+        overflow:'hidden', animation:`lyd-modal-in 360ms ${LYD.spring} both`, position:'relative',
+      }}>
+        <button onClick={onClose} aria-label="Close" style={{
+          position:'absolute', top:16, right:16, zIndex:2,
+          width:44, height:44, borderRadius:999,
+          border:`2px solid ${LYD.ink}`, background:LYD.cream, cursor:'pointer',
+          fontSize:20, fontWeight:700, boxShadow:LYD.chunk(LYD.ink,3,3),
+          display:'flex', alignItems:'center', justifyContent:'center', color:LYD.ink,
+        }}>×</button>
+
+        <div style={{ position:'relative', minHeight:420, borderRight:`3px solid ${LYD.ink}` }}>
+          <StripedPlaceholder label={product.placeholderLabel} bg={product.bgColor} stripe={product.stripeColor}/>
+          <div style={{
+            position:'absolute', top:20, left:20, background:LYD.ink, color:LYD.cream,
+            padding:'10px 16px', border:`2px solid ${LYD.ink}`, borderRadius:999,
+            fontWeight:800, fontSize:16, transform:'rotate(-6deg)',
+            boxShadow:LYD.chunk(LYD.cream,3,3),
+          }}>${product.price}</div>
+        </div>
+
+        <div style={{ padding:'36px 36px 32px', display:'flex', flexDirection:'column', overflow:'auto' }}>
+          <div style={{ fontFamily:'var(--lyd-body)', fontSize:11, letterSpacing:'0.18em', color:LYD.orange, fontWeight:700, marginBottom:8 }}>
+            ↳ LEASH YOUR DOG / SHOP
+          </div>
+          <h2 style={{
+            fontFamily:'var(--lyd-display)', fontSize:36, lineHeight:0.95, margin:0, color:LYD.ink,
+            letterSpacing:'var(--lyd-display-tracking)', textTransform:'var(--lyd-display-transform)',
+          }}>{product.name}</h2>
+          <div style={{ fontFamily:'var(--lyd-body)', fontSize:14, color:LYD.ink, opacity:0.75, marginTop:10 }}>{product.tag}</div>
+
+          <div style={{ marginTop:24 }}>
+            <div style={lbl}>COLOR · {colorName(color)}</div>
+            <div style={{ display:'flex', gap:10, marginTop:10 }}>
+              {product.colors.map(c => (
+                <button key={c} onClick={() => setColor(c)} style={{
+                  width:40, height:40, borderRadius:999, background:c,
+                  border:`2px solid ${LYD.ink}`,
+                  boxShadow: color===c ? LYD.chunk(LYD.ink,3,3) : 'none',
+                  cursor:'pointer',
+                  transform: color===c ? 'translate(-1px,-1px)' : 'translate(0,0)',
+                  transition:`all 160ms ${LYD.ease}`,
+                  outline: color===c ? `3px solid ${LYD.orange}` : 'none',
+                  outlineOffset: color===c ? 3 : 0,
+                }}/>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ marginTop:20 }}>
+            <div style={lbl}>SIZE</div>
+            <div style={{ display:'flex', gap:8, marginTop:10, flexWrap:'wrap' }}>
+              {product.sizes.map(s => {
+                const on = size===s;
+                return (
+                  <button key={s} onClick={() => setSize(s)} style={{
+                    padding: s.length>3 ? '10px 16px' : 0, minWidth:44, height:44,
+                    borderRadius: on ? 14 : 999,
+                    background: on ? LYD.ink : LYD.cream, color: on ? LYD.cream : LYD.ink,
+                    border:`2px solid ${LYD.ink}`, fontFamily:'var(--lyd-body)', fontWeight:700, fontSize:14,
+                    cursor:'pointer', boxShadow: on ? LYD.chunk(LYD.ink,2,2) : 'none',
+                    transform: on ? 'translate(-1px,-1px)' : 'translate(0,0)',
+                    transition:`all 180ms ${LYD.spring}`,
+                  }}>{s}</button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={{ marginTop:24, display:'flex', alignItems:'center', gap:12 }}>
+            <div style={{ display:'flex', alignItems:'center', border:`2px solid ${LYD.ink}`, borderRadius:999, background:LYD.cream, overflow:'hidden' }}>
+              <button onClick={() => setQty(q => Math.max(1,q-1))} style={{ width:36, height:40, border:'none', background:'transparent', fontSize:18, fontWeight:700, cursor:'pointer', color:LYD.ink }}>−</button>
+              <div style={{ minWidth:32, textAlign:'center', fontFamily:'var(--lyd-body)', fontWeight:700, fontSize:16 }}>{qty}</div>
+              <button onClick={() => setQty(q => q+1)} style={{ width:36, height:40, border:'none', background:'transparent', fontSize:18, fontWeight:700, cursor:'pointer', color:LYD.ink }}>+</button>
+            </div>
+            <PillButton variant={added ? 'dark' : 'primary'} size="lg" onClick={checkout} style={{ flex:1 }}>
+              {added ? '✓ ADDED — CHECK OUT' : `ADD TO CART · $${product.price * qty}`}
+            </PillButton>
+          </div>
+
+          <div style={{ marginTop:24, paddingTop:20, borderTop:`1.5px dashed ${LYD.ink}` }}>
+            <div style={lbl}>THE DETAILS</div>
+            <ul style={{ margin:'10px 0 0', padding:0, listStyle:'none', fontFamily:'var(--lyd-body)', fontSize:14, lineHeight:1.55, color:LYD.ink }}>
+              {product.details.map((d,i) => (
+                <li key={i} style={{ display:'flex', gap:10, padding:'3px 0' }}>
+                  <span style={{ color:LYD.orange, fontWeight:800 }}>✦</span><span>{d}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Featured product card ────────────────────────────────────────────────────
+function FeaturedProduct({ product, onOpen, onPickThumb, featured }) {
+  return (
+    <div style={{
+      position:'relative', background:product.bgColor,
+      border:`3px solid ${LYD.ink}`, borderRadius:24,
+      overflow:'hidden', boxShadow:LYD.chunk(LYD.ink,6,6),
+      display:'flex', flexDirection:'column', height:'100%', minHeight:0,
+    }}>
+      <div style={{ flex:1, position:'relative', minHeight:0 }}>
+        <StripedPlaceholder label={product.placeholderLabel} bg={product.bgColor} stripe={product.stripeColor}/>
+        <div style={{
+          position:'absolute', top:18, right:18, width:90, height:90, borderRadius:999,
+          background:LYD.orange, color:LYD.cream, border:`3px solid ${LYD.ink}`,
+          display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column',
+          fontFamily:'var(--lyd-display)', fontWeight:900, lineHeight:0.9,
+          boxShadow:LYD.chunk(LYD.ink,4,4), animation:'lyd-spin 14s linear infinite',
+        }}>
+          <div style={{ fontSize:10, letterSpacing:'0.15em' }}>ONLY</div>
+          <div style={{ fontSize:26 }}>${product.price}</div>
+        </div>
+        <div style={{ position:'absolute', bottom:18, left:18, transform:'rotate(-6deg)' }}>
+          <HeartBanner width={110} label="SF ♥"/>
+        </div>
+      </div>
+      <div style={{ background:LYD.cream, borderTop:`3px solid ${LYD.ink}`, padding:'16px 22px', display:'flex', alignItems:'center', gap:14 }}>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{
+            fontFamily:'var(--lyd-display)', fontSize:22, lineHeight:1,
+            letterSpacing:'var(--lyd-display-tracking)', textTransform:'var(--lyd-display-transform)',
+            fontWeight:900, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
+          }}>{product.name}</div>
+          <div style={{ fontSize:12, opacity:0.7, marginTop:3 }}>{product.tag}</div>
+        </div>
+        <PillButton variant="primary" size="md" onClick={onOpen}>SHOP →</PillButton>
+      </div>
+      <div style={{ background:LYD.cream, borderTop:`2px dashed ${LYD.ink}`, padding:'12px 22px', display:'flex', gap:10, alignItems:'center' }}>
+        {PRODUCTS.map((p,i) => (
+          <button key={p.id} onClick={() => onPickThumb(i)} style={{
+            width:64, height:74, border:`2px solid ${LYD.ink}`, borderRadius:10,
+            overflow:'hidden', background:LYD.cream, padding:0, cursor:'pointer',
+            boxShadow: featured===i ? LYD.chunk(LYD.orange,3,3) : LYD.chunk(LYD.ink,2,2),
+            transform: featured===i ? 'translate(-1px,-1px)' : 'translate(0,0)',
+            transition:`all 180ms ${LYD.spring}`,
+          }}>
+            <StripedPlaceholder label={p.placeholderLabel.split(' ')[0]} bg={p.bgColor} stripe={p.stripeColor}/>
+          </button>
+        ))}
+        <div style={{ marginLeft:'auto', fontFamily:'"JetBrains Mono", monospace', fontSize:10, opacity:0.6, lineHeight:1.4, textAlign:'right' }}>
+          3 PIECES ONLY<br/>100% TO SHELTERS
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── App ─────────────────────────────────────────────────────────────────────
+function App() {
+  const [popover, setPopover]   = React.useState(null);
+  const [featured, setFeatured] = React.useState(0);
+  const [clipped, setClipped]   = React.useState(false);
+  const [dogPos, setDogPos]     = React.useState(null);
+  const dogPosRef               = React.useRef(null);
+
+  React.useEffect(() => {
+    document.body.classList.toggle('leash-cursor', !clipped);
+    return () => document.body.classList.remove('leash-cursor');
+  }, [clipped]);
+
+  React.useEffect(() => {
+    if (!clipped) return;
+    let raf;
+    const tick = () => {
+      const el = document.getElementById('lyd-dog');
+      if (el) {
+        const r = el.getBoundingClientRect();
+        dogPosRef.current = { x: r.left + r.width/2, y: r.top + r.height/2 };
+        setDogPos(dogPosRef.current);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [clipped]);
+
+  return (
+    <div style={{
+      height:'100vh', width:'100vw', background:LYD.cream,
+      position:'relative', overflow:'hidden',
+      display:'flex', flexDirection:'column',
+    }}>
+
+      {/* Tilted censored banner */}
+      <div style={{ paddingTop:18, paddingBottom:14, flexShrink:0 }}>
+        <SmallBanner/>
+      </div>
+
+      {/* Brand mark */}
+      <div style={{
+        position:'absolute', top:14, left:20, zIndex:80,
+        display:'flex', alignItems:'center', gap:8,
+        background:LYD.cream, padding:'4px 10px 4px 6px', borderRadius:999,
+        border:`2px solid ${LYD.ink}`, boxShadow:LYD.chunk(LYD.ink,2,2),
+      }}>
+        <div style={{
+          width:22, height:22, borderRadius:999, background:LYD.orange,
+          border:`2px solid ${LYD.ink}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:10,
+        }}>🦴</div>
+        <div style={{
+          fontFamily:'var(--lyd-display)', fontSize:11, fontWeight:900,
+          letterSpacing:'var(--lyd-display-tracking)', textTransform:'var(--lyd-display-transform)',
+        }}>{COPY.brandName}</div>
+      </div>
+
+      {/* Cart / shelters */}
+      <div style={{ position:'absolute', top:14, right:20, zIndex:80, display:'flex', gap:8 }}>
+        <PillButton variant="ghost" size="sm">{COPY.sheltersBtn}</PillButton>
+        <PillButton variant="dark" size="sm">CART · 0</PillButton>
+      </div>
+
+      {/* Main grid */}
+      <div style={{
+        flex:1, display:'grid', gridTemplateColumns:'1fr 1.05fr',
+        gap:36, padding:'24px 44px 36px',
+        minHeight:0, alignItems:'center', position:'relative', zIndex:1,
+      }}>
+
+        {/* LEFT — hero + mission */}
+        <div style={{ display:'flex', flexDirection:'column', justifyContent:'center' }}>
+          <div style={{ fontSize:12, fontWeight:800, letterSpacing:'0.22em', color:LYD.orange, marginBottom:10 }}>
+            ✦ {COPY.tagline.toUpperCase()}
+          </div>
+          <h1 style={{
+            fontFamily:'var(--lyd-display)',
+            fontSize:'clamp(72px, 8.6vw, 148px)', lineHeight:0.86,
+            letterSpacing:'var(--lyd-display-tracking)', textTransform:'var(--lyd-display-transform)',
+            margin:0, color:LYD.ink, fontWeight:900,
+          }}>
+            Leash<br/>your<br/>
+            <span style={{
+              background:LYD.orange, color:LYD.cream,
+              padding:'0 16px', display:'inline-block', transform:'rotate(-2deg)',
+              border:`3px solid ${LYD.ink}`, boxShadow:LYD.chunk(LYD.ink,5,5), marginTop:8,
+            }}>dog.</span>
+          </h1>
+
+          {/* Mission section */}
+          <div style={{
+            marginTop:28, display:'grid', gridTemplateColumns:'72px 1fr',
+            gap:18, alignItems:'start', maxWidth:560, paddingTop:20, borderTop:`2.5px solid ${LYD.ink}`,
+          }}>
+            <div style={{
+              width:72, height:72, borderRadius:999, background:LYD.ink, color:LYD.orange,
+              border:`3px solid ${LYD.ink}`, display:'flex', alignItems:'center', justifyContent:'center',
+              fontFamily:'var(--lyd-display)', fontWeight:900, fontSize:28, boxShadow:LYD.chunk(LYD.orange,4,4),
+            }}>{COPY.missionPct}</div>
+            <div>
+              <div style={{
+                fontFamily:'var(--lyd-display)', fontSize:22, lineHeight:1,
+                letterSpacing:'var(--lyd-display-tracking)', textTransform:'var(--lyd-display-transform)',
+                fontWeight:900,
+              }}>{COPY.missionHead}</div>
+              <div style={{ marginTop:8, fontSize:15, lineHeight:1.5, color:LYD.ink }}>{COPY.missionBody}</div>
+              <div style={{ marginTop:12, display:'flex', gap:10 }}>
+                <PillButton variant="ghost" size="sm">{COPY.sheltersBtn}</PillButton>
+                <PillButton variant="ghost" size="sm">{COPY.storyBtn}</PillButton>
+              </div>
+            </div>
+          </div>
+
+          {!clipped && (
+            <div style={{
+              marginTop:18, display:'inline-flex', alignItems:'center', gap:8,
+              fontFamily:'"JetBrains Mono", monospace', fontSize:11, letterSpacing:'0.15em',
+              color:LYD.ink, opacity:0.7,
+            }}>
+              <span style={{
+                display:'inline-block', width:8, height:8, borderRadius:999, background:LYD.orange,
+                animation:'lyd-blink 1.2s ease-in-out infinite',
+              }}/>
+              {COPY.ctaHint}
+            </div>
+          )}
+        </div>
+
+        {/* RIGHT — featured product */}
+        <FeaturedProduct
+          product={PRODUCTS[featured]} onOpen={() => setPopover(PRODUCTS[featured])}
+          onPickThumb={setFeatured} featured={featured}
+        />
+      </div>
+
+      {/* Dog + leash overlays */}
+      <div id="lyd-dog">
+        <RunningDog clipped={clipped} onClip={() => setClipped(true)} size={150}/>
+      </div>
+      <CursorLeash enabled={!clipped}/>
+      <LeashToDog enabled={clipped} dogPos={dogPos}/>
+
+      {/* Post-clip confirmation */}
+      {clipped && (
+        <div style={{
+          position:'fixed', top:80, left:'50%', transform:'translateX(-50%)',
+          background:LYD.ink, color:LYD.cream,
+          padding:'10px 18px', borderRadius:999,
+          border:`2.5px solid ${LYD.ink}`, boxShadow:LYD.chunk(LYD.orange,3,3),
+          fontFamily:'"JetBrains Mono", monospace', fontSize:11, fontWeight:700, letterSpacing:'0.2em',
+          zIndex:85, animation:'lyd-ping 500ms ease-out',
+        }}>✦ GOOD DOG ✦ LEASH CLIPPED ✦</div>
+      )}
+
+      {popover && <ProductPopover product={popover} onClose={() => setPopover(null)}/>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
