@@ -127,7 +127,7 @@ function SmallBanner() {
     }}>
       <div style={{
         display: 'inline-block', padding: '8px 0',
-        animation: 'lyd-marquee 36s linear infinite',
+        animation: 'lyd-marquee 60s linear infinite',
         fontFamily: 'var(--lyd-display)', fontSize: 28, fontWeight: 900, color: LYD.ink,
         letterSpacing: 'var(--lyd-display-tracking)', textTransform: 'var(--lyd-display-transform)', lineHeight: 1,
       }}>
@@ -193,7 +193,7 @@ function RunningDog({ onClip, clipped, size = 150, onPosChange }) {
           if (Math.hypot(v.vx,v.vy) < 1) { v.vx += (Math.random()-0.5)*0.3; v.vy += (Math.random()-0.5)*0.3; }
         }
         const sp = Math.hypot(v.vx,v.vy);
-        if (sp > 2.5) { v.vx = v.vx/sp*2.5; v.vy = v.vy/sp*2.5; }
+        if (sp > 3.5) { v.vx = v.vx/sp*3.5; v.vy = v.vy/sp*3.5; }
         v.vx *= 0.98; v.vy *= 0.98;
         let nx = p.x+v.vx, ny = p.y+v.vy;
         const m = 90;
@@ -203,7 +203,7 @@ function RunningDog({ onClip, clipped, size = 150, onPosChange }) {
         if (ny > h-m) { ny=h-m; v.vy=-Math.abs(v.vy); }
         posRef.current = { x:nx, y:ny };
         setPos({ x:nx, y:ny });
-        setFacing(v.vx>=0 ? 1 : -1);
+        if (Math.abs(v.vx) > 0.8) setFacing(v.vx>=0 ? 1 : -1);
         onPosChangeRef.current && onPosChangeRef.current({ x:nx, y:ny });
       } else {
         // Settle into bottom-left corner
@@ -227,8 +227,8 @@ function RunningDog({ onClip, clipped, size = 150, onPosChange }) {
 
   return (
     <div
-      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
-      onClick={(e) => { e.stopPropagation(); if (!clipped) onClip(); }}
+      onMouseEnter={() => { setHover(true); if (!clipped) onClip(); }}
+      onMouseLeave={() => setHover(false)}
       style={{
         position: 'fixed', left: pos.x-size/2, top: pos.y-size/2,
         width: size, height: size,
@@ -469,16 +469,6 @@ function FeaturedProduct({ product, onOpen, onPickThumb, featured }) {
     }}>
       <div style={{ flex:1, position:'relative', minHeight:0 }}>
         <StripedPlaceholder label={product.placeholderLabel} bg={product.bgColor} stripe={product.stripeColor}/>
-        <div style={{
-          position:'absolute', top:18, right:18, width:90, height:90, borderRadius:999,
-          background:LYD.orange, color:LYD.cream, border:`3px solid ${LYD.ink}`,
-          display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column',
-          fontFamily:'var(--lyd-display)', fontWeight:900, lineHeight:0.9,
-          boxShadow:LYD.chunk(LYD.ink,4,4), animation:'lyd-spin 14s linear infinite',
-        }}>
-          <div style={{ fontSize:10, letterSpacing:'0.15em' }}>ONLY</div>
-          <div style={{ fontSize:26 }}>${product.price}</div>
-        </div>
         <div style={{ position:'absolute', bottom:18, left:18, transform:'rotate(-6deg)' }}>
           <HeartBanner width={110} label="SF ♥"/>
         </div>
@@ -553,9 +543,6 @@ function App() {
 
         {/* LEFT — hero + mission */}
         <div style={{ display:'flex', flexDirection:'column', justifyContent:'center' }}>
-          <div style={{ fontSize:12, fontWeight:800, letterSpacing:'0.22em', color:LYD.orange, marginBottom:10 }}>
-            ✦ {COPY.tagline.toUpperCase()}
-          </div>
           <h1 style={{
             fontFamily:'var(--lyd-display)',
             fontSize:'clamp(72px, 8.6vw, 148px)', lineHeight:0.86,
@@ -591,19 +578,6 @@ function App() {
             </div>
           </div>
 
-          {!clipped && (
-            <div style={{
-              marginTop:18, display:'inline-flex', alignItems:'center', gap:8,
-              fontFamily:'"JetBrains Mono", monospace', fontSize:11, letterSpacing:'0.15em',
-              color:LYD.ink, opacity:0.7,
-            }}>
-              <span style={{
-                display:'inline-block', width:8, height:8, borderRadius:999, background:LYD.orange,
-                animation:'lyd-blink 1.2s ease-in-out infinite',
-              }}/>
-              {COPY.ctaHint}
-            </div>
-          )}
         </div>
 
         {/* RIGHT — featured product */}
@@ -616,7 +590,6 @@ function App() {
       {/* Dog + leash overlays */}
       <RunningDog clipped={clipped} onClip={() => setClipped(true)} size={150} onPosChange={setDogPos}/>
       <CursorLeash enabled={!clipped}/>
-      <LeashToDog enabled={clipped} dogPos={dogPos}/>
 
       {/* Good boy label — follows dog to corner */}
       {clipped && dogPos && (
