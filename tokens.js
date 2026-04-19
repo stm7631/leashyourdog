@@ -122,10 +122,10 @@ const PRODUCTS = [
 const COPY = {
   brandName:   'LEASH YOUR DOG',
   tagline:     'A tiny shop from San Francisco',
-  missionHead: 'Our mission is simple.',
-  missionBody: 'Every dollar from every shirt, cap and poster goes directly to Bay Area dog rescues. We\'re a handful of designers in the Mission who are tired of off-leash chaos and tired of shelters being underfunded. Two birds. One very loud stone.',
-  sheltersBtn: 'OUR SHELTERS →',
-  storyBtn:    'THE STORY',
+  missionHead: '100% profit goes to dogs',
+  missionBody: 'Raise awareness about the off-leash dog epidemic.\n\nWe screen print everything in our basement in San Francisco, and donate everything after supply costs.',
+  sheltersBtn: 'SHELTERS →',
+  storyBtn:    'STORY',
   ctaHint:     'PSST — CATCH THE DOG TO SHOP',
   missionPct:  '100%',
 };

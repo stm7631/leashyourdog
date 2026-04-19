@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
 <title>Leash Your Dog</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -416,23 +417,21 @@ function App() {
 
           {/* Mission blurb */}
           <div style={{
-            marginTop:18, display:'flex', gap:12, alignItems:'flex-start',
-            paddingTop:14, borderTop:`2px solid ${LYD.ink}`, maxWidth:380,
+            marginTop:18, display:'flex', flexDirection:'column', gap:24,
+            paddingTop:14, borderTop:`2px solid ${LYD.ink}`,
           }}>
-            <div style={{
-              flexShrink:0, width:52, height:52, borderRadius:999, background:LYD.ink, color:LYD.orange,
-              display:'flex', alignItems:'center', justifyContent:'center',
-              fontFamily:'var(--lyd-display)', fontWeight:900, fontSize:18,
-              boxShadow:LYD.chunk(LYD.orange,3,3),
-            }}>{COPY.missionPct}</div>
-            <div>
+            <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
               <div style={{
-                fontFamily:'var(--lyd-display)', fontSize:16, lineHeight:1, fontWeight:900,
+                fontFamily:'var(--lyd-display)', fontSize:24, lineHeight:1, fontWeight:900,
                 letterSpacing:'var(--lyd-display-tracking)', textTransform:'var(--lyd-display-transform)',
               }}>{COPY.missionHead}</div>
-              <div style={{ marginTop:6, fontSize:13, lineHeight:1.4, color:LYD.ink, opacity:0.85 }}>
+              <div style={{ fontSize:16, lineHeight:1.4, color:LYD.ink }}>
                 {COPY.missionBody}
               </div>
+            </div>
+            <div style={{ display:'flex', gap:10 }}>
+              <PillButton variant="ghost" size="sm">{COPY.sheltersBtn}</PillButton>
+              <PillButton variant="ghost" size="sm">{COPY.storyBtn}</PillButton>
             </div>
           </div>
 

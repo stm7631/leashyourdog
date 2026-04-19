@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <script>if ('ontouchstart' in window || navigator.maxTouchPoints > 0) window.location.replace('mobile.html');</script>
 <title>Leash Your Dog</title>
@@ -556,25 +557,20 @@ function App() {
 
           {/* Mission section */}
           <div style={{
-            marginTop:28, display:'grid', gridTemplateColumns:'72px 1fr',
-            gap:18, alignItems:'start', maxWidth:560, paddingTop:20, borderTop:`2.5px solid ${LYD.ink}`,
+            marginTop:28, display:'flex', flexDirection:'column', gap:24,
+            maxWidth:344, paddingTop:20, borderTop:`2.5px solid ${LYD.ink}`,
           }}>
-            <div style={{
-              width:72, height:72, borderRadius:999, background:LYD.ink, color:LYD.orange,
-              border:`3px solid ${LYD.ink}`, display:'flex', alignItems:'center', justifyContent:'center',
-              fontFamily:'var(--lyd-display)', fontWeight:900, fontSize:28, boxShadow:LYD.chunk(LYD.orange,4,4),
-            }}>{COPY.missionPct}</div>
-            <div>
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
               <div style={{
                 fontFamily:'var(--lyd-display)', fontSize:22, lineHeight:1,
                 letterSpacing:'var(--lyd-display-tracking)', textTransform:'var(--lyd-display-transform)',
                 fontWeight:900,
               }}>{COPY.missionHead}</div>
-              <div style={{ marginTop:8, fontSize:15, lineHeight:1.5, color:LYD.ink }}>{COPY.missionBody}</div>
-              <div style={{ marginTop:12, display:'flex', gap:10 }}>
-                <PillButton variant="ghost" size="sm">{COPY.sheltersBtn}</PillButton>
-                <PillButton variant="ghost" size="sm">{COPY.storyBtn}</PillButton>
-              </div>
+              <div style={{ fontSize:15, lineHeight:1.5, color:LYD.ink }}>{COPY.missionBody}</div>
+            </div>
+            <div style={{ display:'flex', gap:10 }}>
+              <PillButton variant="ghost" size="sm">{COPY.sheltersBtn}</PillButton>
+              <PillButton variant="ghost" size="sm">{COPY.storyBtn}</PillButton>
             </div>
           </div>
 
