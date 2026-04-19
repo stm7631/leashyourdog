@@ -10,7 +10,15 @@
       "mcp__figma__get_design_context",
       "mcp__figma__get_metadata",
       "mcp__figma__use_figma",
-      "mcp__figma__generate_figma_design"
+      "mcp__figma__generate_figma_design",
+      "Bash(python3 -m http.server 3000)",
+      "Bash(echo \"PID: $!\")",
+      "Bash(open \"http://localhost:3000/index.html#figmacapture=fe8fcecd-8403-4aa8-9761-e56e5ce3b83e&figmaendpoint=https%3A%2F%2Fmcp.figma.com%2Fmcp%2Fcapture%2Ffe8fcecd-8403-4aa8-9761-e56e5ce3b83e%2Fsubmit&figmadelay=1000\")",
+      "Bash(open \"http://localhost:3000/mobile.html#figmacapture=0462f986-0a31-4284-8f82-1170661e10a3&figmaendpoint=https%3A%2F%2Fmcp.figma.com%2Fmcp%2Fcapture%2F0462f986-0a31-4284-8f82-1170661e10a3%2Fsubmit&figmadelay=1000\")",
+      "Bash(kill 76478)",
+      "mcp__figma__get_screenshot",
+      "Bash(open *)",
+      "Bash(kill 76684)"
     ]
   },
   "enableAllProjectMcpServers": true,

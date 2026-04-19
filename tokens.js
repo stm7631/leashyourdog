@@ -68,7 +68,7 @@ const PRODUCTS = [
   {
     id:               'tee-leash',
     name:             'LEASH YOUR DOG TEE',
-    tag:              'Heavyweight cotton · Printed in SF',
+    tag:              'Heavyweight cotton · Screen printed',
     price:            38,
     colors:           ['#FF5B1F', '#1A1A1A', '#FFF4E6'],
     sizes:            ['XS', 'S', 'M', 'L', 'XL', 'XXL'],

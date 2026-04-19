@@ -27,6 +27,11 @@
   @keyframes lyd-backdrop-in { from { opacity: 0 } to { opacity: 1 } }
   @keyframes lyd-modal-in   { from { opacity: 0; transform: translateY(24px) scale(0.94) } to { opacity: 1; transform: translateY(0) scale(1) } }
   @keyframes lyd-censor-wobble { 0%,100% { transform: rotate(-1.5deg) } 50% { transform: rotate(1.5deg) } }
+  @keyframes lyd-goodboy-flash {
+    0%,25%,50% { opacity:1 }
+    12%,37%,62% { opacity:0 }
+    75%,100% { opacity:0 }
+  }
 </style>
 </head>
 <body>
@@ -52,6 +57,18 @@
 // ─── Helpers ────────────────────────────────────────────────────────────────
 function colorName(hex) {
   return ({ '#FF5B1F': 'SF Orange', '#1A1A1A': 'Ink Black', '#FFF4E6': 'Bone Cream', '#2E6BE6': 'Signal Blue' })[hex] || hex;
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function pointInPolygon(p, poly) {
+  if (poly.length < 3) return false;
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i].x, yi = poly[i].y, xj = poly[j].x, yj = poly[j].y;
+    const intersect = ((yi > p.y) !== (yj > p.y)) && (p.x < (xj-xi)*(p.y-yi)/(yj-yi+1e-9)+xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
 }
 
 // ─── Striped placeholder ─────────────────────────────────────────────────────
@@ -117,7 +134,7 @@ function CensoredWord() {
 function SmallBanner() {
   const phrase = (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 14 }}>
-      <span>LEASH YOUR</span><CensoredWord /><span>DOG</span>
+      <span>LEASH YOUR DOG</span>
       <span style={{ fontSize: '0.7em', padding: '0 10px' }}>✦</span>
     </span>
   );
@@ -470,9 +487,6 @@ function FeaturedProduct({ product, onOpen, onPickThumb, featured }) {
     }}>
       <div style={{ flex:1, position:'relative', minHeight:0 }}>
         <StripedPlaceholder label={product.placeholderLabel} bg={product.bgColor} stripe={product.stripeColor}/>
-        <div style={{ position:'absolute', bottom:18, left:18, transform:'rotate(-6deg)' }}>
-          <HeartBanner width={110} label="SF ♥"/>
-        </div>
       </div>
       <div style={{ background:LYD.cream, borderTop:`3px solid ${LYD.ink}`, padding:'16px 22px', display:'flex', alignItems:'center', gap:14 }}>
         <div style={{ flex:1, minWidth:0 }}>
@@ -483,7 +497,7 @@ function FeaturedProduct({ product, onOpen, onPickThumb, featured }) {
           }}>{product.name}</div>
           <div style={{ fontSize:12, opacity:0.7, marginTop:3 }}>{product.tag}</div>
         </div>
-        <PillButton variant="primary" size="md" onClick={onOpen}>SHOP →</PillButton>
+        <PillButton variant="primary" size="md" onClick={onOpen}>VIEW →</PillButton>
       </div>
       <div style={{ background:LYD.cream, borderTop:`2px dashed ${LYD.ink}`, padding:'12px 22px', display:'flex', gap:10, alignItems:'center' }}>
         {PRODUCTS.map((p,i) => (
@@ -497,9 +511,6 @@ function FeaturedProduct({ product, onOpen, onPickThumb, featured }) {
             <StripedPlaceholder label={p.placeholderLabel.split(' ')[0]} bg={p.bgColor} stripe={p.stripeColor}/>
           </button>
         ))}
-        <div style={{ marginLeft:'auto', fontFamily:'"JetBrains Mono", monospace', fontSize:10, opacity:0.6, lineHeight:1.4, textAlign:'right' }}>
-          3 PIECES ONLY<br/>100% TO SHELTERS
-        </div>
       </div>
     </div>
   );
@@ -510,28 +521,129 @@ function App() {
   const [popover, setPopover]   = React.useState(null);
   const [featured, setFeatured] = React.useState(0);
   const [clipped, setClipped]   = React.useState(false);
-  const [dogPos, setDogPos]     = React.useState(null);
+  const [dogPos, setDogPos]     = React.useState({ x: 260, y: 420 });
+  const dogPosRef               = React.useRef({ x: 260, y: 420 });
+  const velRef                  = React.useRef({ vx: 1.5, vy: 0.9 });
+  const [facing, setFacing]     = React.useState(1);
+  const [lasso, setLasso]       = React.useState([]);
+  const lassoRef                = React.useRef(false);
+  const leftColRef              = React.useRef(null);
+  const boundsRef               = React.useRef({ minX: 80, maxX: 480, minY: 160, maxY: 680 });
+  const cursorRef               = React.useRef({ x: -9999, y: -9999 });
 
+  // Measure left column bounds for dog confinement
   React.useEffect(() => {
-    document.body.classList.toggle('leash-cursor', !clipped);
-    return () => document.body.classList.remove('leash-cursor');
+    const measure = () => {
+      if (!leftColRef.current) return;
+      const r = leftColRef.current.getBoundingClientRect();
+      const pad = 80;
+      boundsRef.current = { minX: r.left + pad, maxX: r.right - pad, minY: r.top + pad, maxY: r.bottom - pad };
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
+
+  // Track cursor for dog avoidance
+  React.useEffect(() => {
+    const onMove = (e) => { cursorRef.current = { x: e.clientX, y: e.clientY }; };
+    window.addEventListener('pointermove', onMove);
+    return () => window.removeEventListener('pointermove', onMove);
+  }, []);
+
+  // Dog roaming — erratic + cursor-avoidance
+  React.useEffect(() => {
+    if (clipped) return;
+    let raf;
+    const tick = () => {
+      const p = dogPosRef.current, v = velRef.current;
+      const { minX, maxX, minY, maxY } = boundsRef.current;
+      const c = cursorRef.current;
+      const dx = p.x - c.x, dy = p.y - c.y, dist = Math.hypot(dx, dy);
+      if (dist < 280 && dist > 0.1) {
+        const s = Math.pow((280 - dist) / 280, 1.5) * 1.2;
+        v.vx += (dx / dist) * s; v.vy += (dy / dist) * s;
+      }
+      if (Math.random() < 0.05) { v.vx += (Math.random()-0.5)*2.4; v.vy += (Math.random()-0.5)*2.4; }
+      const sp = Math.hypot(v.vx, v.vy);
+      if (sp < 1.5) { v.vx += (Math.random()-0.5)*1; v.vy += (Math.random()-0.5)*1; }
+      if (sp > 6) { v.vx = v.vx/sp*6; v.vy = v.vy/sp*6; }
+      v.vx *= 0.982; v.vy *= 0.982;
+      let nx = p.x+v.vx, ny = p.y+v.vy;
+      if (nx < minX) { nx=minX; v.vx=Math.abs(v.vx)*1.1; }
+      if (nx > maxX) { nx=maxX; v.vx=-Math.abs(v.vx)*1.1; }
+      if (ny < minY) { ny=minY; v.vy=Math.abs(v.vy)*1.1; }
+      if (ny > maxY) { ny=maxY; v.vy=-Math.abs(v.vy)*1.1; }
+      dogPosRef.current = { x:nx, y:ny };
+      setDogPos({ x:nx, y:ny });
+      if (Math.abs(v.vx) > 0.8) setFacing(v.vx >= 0 ? 1 : -1);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
   }, [clipped]);
 
-  return (
-    <div style={{
-      height:'100vh', width:'100vw', background:LYD.cream,
-      position:'relative', overflow:'hidden',
-      display:'flex', flexDirection:'column',
-    }}>
+  // Settle dog to bottom-right of left column when caught
+  React.useEffect(() => {
+    if (!clipped) return;
+    let raf;
+    const settle = () => {
+      const p = dogPosRef.current, b = boundsRef.current;
+      const tx = b.maxX, ty = b.maxY;
+      const dx = tx - p.x, dy = ty - p.y;
+      if (Math.hypot(dx, dy) > 1.5) {
+        dogPosRef.current = { x: p.x + dx*0.08, y: p.y + dy*0.08 };
+        setDogPos({ ...dogPosRef.current });
+        setFacing(1);
+        raf = requestAnimationFrame(settle);
+      }
+    };
+    raf = requestAnimationFrame(settle);
+    return () => cancelAnimationFrame(raf);
+  }, [clipped]);
 
-      {/* Tilted censored banner */}
-      <div style={{ paddingTop:18, paddingBottom:14, flexShrink:0 }}>
+  const onPointerDown = (e) => {
+    if (clipped || e.target.closest('button')) return;
+    lassoRef.current = true;
+    setLasso([{ x: e.clientX, y: e.clientY }]);
+  };
+  const onPointerMove = (e) => {
+    if (!lassoRef.current) return;
+    setLasso(pts => [...pts, { x: e.clientX, y: e.clientY }]);
+  };
+  const onPointerUp = () => {
+    if (!lassoRef.current) return;
+    lassoRef.current = false;
+    const d = dogPosRef.current;
+    if (pointInPolygon({ x: d.x, y: d.y }, lasso)) {
+      setClipped(true);
+      setTimeout(() => setLasso([]), 400);
+    } else {
+      setTimeout(() => setLasso([]), 350);
+    }
+  };
+
+  return (
+    <div
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      style={{
+        height:'100vh', width:'100vw', background:LYD.cream,
+        position:'relative', overflow:'hidden',
+        display:'flex', flexDirection:'column',
+        cursor: clipped ? 'default' : 'crosshair',
+        userSelect:'none', WebkitUserSelect:'none',
+      }}
+    >
+      {/* Tilted banner */}
+      <div style={{ paddingTop:18, paddingBottom:14, flexShrink:0, pointerEvents:'none' }}>
         <SmallBanner/>
       </div>
 
-      {/* Cart / shelters */}
-      <div style={{ position:'absolute', top:14, right:20, zIndex:80, display:'flex', gap:8 }}>
-        <PillButton variant="ghost" size="sm">{COPY.sheltersBtn}</PillButton>
+      {/* Cart */}
+      <div style={{ position:'absolute', top:14, right:20, zIndex:80 }}>
         <PillButton variant="dark" size="sm">CART · 0</PillButton>
       </div>
 
@@ -541,9 +653,8 @@ function App() {
         gap:36, padding:'24px 44px 36px',
         minHeight:0, alignItems:'center', position:'relative', zIndex:1,
       }}>
-
-        {/* LEFT — hero + mission */}
-        <div style={{ display:'flex', flexDirection:'column', justifyContent:'center' }}>
+        {/* LEFT — hero + mission (pointer-events off so text is non-selectable) */}
+        <div ref={leftColRef} style={{ display:'flex', flexDirection:'column', justifyContent:'center', gap:36, pointerEvents:'none' }}>
           <h1 style={{
             fontFamily:'var(--lyd-display)',
             fontSize:'clamp(72px, 8.6vw, 148px)', lineHeight:0.86,
@@ -555,11 +666,19 @@ function App() {
             dog.
           </h1>
 
-          {/* Mission section */}
+          {/* Lasso hint → GOOD BOY on catch */}
           <div style={{
-            marginTop:28, display:'flex', flexDirection:'column', gap:24,
-            maxWidth:344, paddingTop:20, borderTop:`2.5px solid ${LYD.ink}`,
+            display:'flex', gap:8, alignItems:'center',
+            ...(clipped && { animation:'lyd-goodboy-flash 1.8s ease forwards' }),
           }}>
+            <span style={{ color:LYD.orange, fontSize:19.6, display:'inline-block', transform:'rotate(-2deg)' }}>✦</span>
+            <span style={{ color:LYD.orange, fontSize:16, fontWeight:600, fontFamily:'var(--lyd-body)', whiteSpace:'nowrap' }}>
+              {clipped ? 'GOOD BOY ✦' : 'Lasso that dog!'}
+            </span>
+          </div>
+
+          {/* Mission section */}
+          <div style={{ display:'flex', flexDirection:'column', gap:24, maxWidth:344 }}>
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
               <div style={{
                 fontFamily:'var(--lyd-display)', fontSize:22, lineHeight:1,
@@ -568,12 +687,10 @@ function App() {
               }}>{COPY.missionHead}</div>
               <div style={{ fontSize:15, lineHeight:1.5, color:LYD.ink }}>{COPY.missionBody}</div>
             </div>
-            <div style={{ display:'flex', gap:10 }}>
+            <div style={{ pointerEvents:'auto' }}>
               <PillButton variant="ghost" size="sm">{COPY.sheltersBtn}</PillButton>
-              <PillButton variant="ghost" size="sm">{COPY.storyBtn}</PillButton>
             </div>
           </div>
-
         </div>
 
         {/* RIGHT — featured product */}
@@ -583,21 +700,28 @@ function App() {
         />
       </div>
 
-      {/* Dog + leash overlays */}
-      <RunningDog clipped={clipped} onClip={() => setClipped(true)} size={150} onPosChange={setDogPos}/>
-      <CursorLeash enabled={!clipped}/>
+      {/* Dog */}
+      <div style={{
+        position:'fixed', left: dogPos.x - 75, top: dogPos.y - 75,
+        width:150, height:150,
+        transform:`scaleX(${facing})`, transition:'transform 120ms linear',
+        pointerEvents:'none', zIndex:60,
+      }}>
+        <DogIllustration size={150}/>
+      </div>
 
-      {/* Good boy label — follows dog to corner */}
-      {clipped && dogPos && (
-        <div style={{
-          position:'fixed', left: dogPos.x - 52, top: dogPos.y - 112,
-          fontFamily:'var(--lyd-display)', fontSize:22, fontWeight:900, color:LYD.ink,
-          letterSpacing:'0.04em', textTransform:'var(--lyd-display-transform)',
-          transform:'rotate(-3deg)', pointerEvents:'none', zIndex:65, whiteSpace:'nowrap',
-        }}>GOOD BOY ✦</div>
+      {/* Lasso path */}
+      {!clipped && lasso.length > 1 && (
+        <svg style={{ position:'fixed', inset:0, width:'100vw', height:'100vh', pointerEvents:'none', zIndex:50 }}>
+          <path
+            d={`M ${lasso.map(p => `${p.x},${p.y}`).join(' L ')}`}
+            fill="rgba(255,91,31,0.15)" stroke={LYD.orange}
+            strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="8 6"
+          />
+        </svg>
       )}
 
-      {popover && <ProductPopover product={popover} onClose={() => setPopover(null)}/>}
+{popover && <ProductPopover product={popover} onClose={() => setPopover(null)}/>}
     </div>
   );
 }
