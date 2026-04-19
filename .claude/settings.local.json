@@ -3,7 +3,9 @@
     "allow": [
       "WebFetch(domain:api.anthropic.com)",
       "Bash(mkdir -p extracted)",
-      "Bash(tar -xf webfetch-1776548207870-rls03d.bin -C extracted)"
+      "Bash(tar -xf webfetch-1776548207870-rls03d.bin -C extracted)",
+      "Bash(git -C /Users/martin/Documents/LeashYour.Dog/leashyourdog status)",
+      "Bash(git -C /Users/martin/Documents/LeashYour.Dog/leashyourdog log --oneline -5)"
     ]
   }
 }
